@@ -181,41 +181,34 @@ def _getsignature(func, skipfirst, instance=False):
 
   if inPy3k:
     try:
-      argspec = inspect.getfullargspec(func)
-    except TypeError:
-      # C function / method, possibly inherited object().__init__
+      # Prefer inspect.signature for Python 3.11+
+      try:
+        sig = inspect.signature(func)
+        signature = str(sig)[1:-1]
+      except Exception:
+        argspec = inspect.getfullargspec(func)
+        regargs, varargs, varkw, defaults, kwonly, kwonlydef, ann = argspec
+        signature = inspect.formatargspec(
+          regargs,
+          varargs,
+          varkw,
+          defaults,
+          kwonly,
+          kwonlydef,
+          ann,
+          formatvalue=lambda value: "",
+        )[1:-1]
+    except Exception:
       return
-    regargs, varargs, varkw, defaults, kwonly, kwonlydef, ann = argspec
   else:
     try:
       regargs, varargs, varkwargs, defaults = inspect.getargspec(func)
-    except TypeError:
-      # C function / method, possibly inherited object().__init__
+      signature = inspect.formatargspec(
+        regargs, varargs, varkwargs, defaults, formatvalue=lambda value: ""
+      )[1:-1]
+    except Exception:
       return
-
-  # instance methods and classmethods need to lose the self argument
-  if getattr(func, self, None) is not None:
-    regargs = regargs[1:]
-  if skipfirst:
-    # this condition and the above one are never both True - why?
-    regargs = regargs[1:]
-
-  if inPy3k:
-    signature = inspect.formatargspec(
-      regargs,
-      varargs,
-      varkw,
-      defaults,
-      kwonly,
-      kwonlydef,
-      ann,
-      formatvalue=lambda value: "",
-    )
-  else:
-    signature = inspect.formatargspec(
-      regargs, varargs, varkwargs, defaults, formatvalue=lambda value: ""
-    )
-  return signature[1:-1], func
+  return signature, func
 
 
 def _check_signature(func, mock, skipfirst, instance=False):
