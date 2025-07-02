@@ -91,11 +91,35 @@ def format_function(name, aliases, func):
             signature = match.group(1)
     else:
         try:
-            argspec = inspect.getargspec(func)
+            fullargspec = inspect.getfullargspec(func)
+            # Convert to getargspec-like tuple for backward compatibility
+            argspec = (fullargspec.args, fullargspec.varargs, fullargspec.varkw, fullargspec.defaults)
             if getattr(func, 'environmentfilter', False) or \
                getattr(func, 'contextfilter', False):
                 del argspec[0][0]
-            signature = inspect.formatargspec(*argspec)
+            if hasattr(inspect, 'formatargspec'):
+                signature = inspect.formatargspec(*argspec)
+            else:
+                # Fallback for Python 3.11+ where formatargspec is removed
+                regargs, varargs, varkw, defaults = argspec
+                specs = []
+                if defaults:
+                    firstdefault = len(regargs) - len(defaults)
+                else:
+                    firstdefault = len(regargs)
+                
+                for i, arg in enumerate(regargs):
+                    if i >= firstdefault:
+                        specs.append(f"{arg}=...")
+                    else:
+                        specs.append(arg)
+                
+                if varargs:
+                    specs.append(f"*{varargs}")
+                if varkw:
+                    specs.append(f"**{varkw}")
+                
+                signature = "(" + ", ".join(specs) + ")"
         except:
             pass
     result = [f'.. function:: {name}{signature}', '']

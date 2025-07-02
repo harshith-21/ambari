@@ -188,7 +188,8 @@ def _getsignature(func, skipfirst, instance=False):
     regargs, varargs, varkw, defaults, kwonly, kwonlydef, ann = argspec
   else:
     try:
-      regargs, varargs, varkwargs, defaults = inspect.getargspec(func)
+      fullargspec = inspect.getfullargspec(func)
+      regargs, varargs, varkwargs, defaults = fullargspec.args, fullargspec.varargs, fullargspec.varkw, fullargspec.defaults
     except TypeError:
       # C function / method, possibly inherited object().__init__
       return
@@ -201,20 +202,63 @@ def _getsignature(func, skipfirst, instance=False):
     regargs = regargs[1:]
 
   if inPy3k:
-    signature = inspect.formatargspec(
-      regargs,
-      varargs,
-      varkw,
-      defaults,
-      kwonly,
-      kwonlydef,
-      ann,
-      formatvalue=lambda value: "",
-    )
+    if hasattr(inspect, 'formatargspec'):
+      signature = inspect.formatargspec(
+        regargs,
+        varargs,
+        varkw,
+        defaults,
+        kwonly,
+        kwonlydef,
+        ann,
+        formatvalue=lambda value: "",
+      )
+    else:
+      # Fallback for Python 3.11+ where formatargspec is removed
+      # Simple signature formatting without keyword-only args for now
+      specs = []
+      if defaults:
+        firstdefault = len(regargs) - len(defaults)
+      else:
+        firstdefault = len(regargs)
+      
+      for i, arg in enumerate(regargs):
+        if i >= firstdefault:
+          specs.append(f"{arg}=...")
+        else:
+          specs.append(arg)
+      
+      if varargs:
+        specs.append(f"*{varargs}")
+      if varkw:
+        specs.append(f"**{varkw}")
+      
+      signature = "(" + ", ".join(specs) + ")"
   else:
-    signature = inspect.formatargspec(
-      regargs, varargs, varkwargs, defaults, formatvalue=lambda value: ""
-    )
+    if hasattr(inspect, 'formatargspec'):
+      signature = inspect.formatargspec(
+        regargs, varargs, varkwargs, defaults, formatvalue=lambda value: ""
+      )
+    else:
+      # Fallback for older Python versions without formatargspec
+      specs = []
+      if defaults:
+        firstdefault = len(regargs) - len(defaults)
+      else:
+        firstdefault = len(regargs)
+      
+      for i, arg in enumerate(regargs):
+        if i >= firstdefault:
+          specs.append(f"{arg}=...")
+        else:
+          specs.append(arg)
+      
+      if varargs:
+        specs.append(f"*{varargs}")
+      if varkwargs:
+        specs.append(f"**{varkwargs}")
+      
+      signature = "(" + ", ".join(specs) + ")"
   return signature[1:-1], func
 
 
