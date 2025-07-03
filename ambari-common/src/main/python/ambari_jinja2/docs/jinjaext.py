@@ -91,12 +91,20 @@ def format_function(name, aliases, func):
             signature = match.group(1)
     else:
         try:
-            argspec = inspect.getargspec(func)
-            if getattr(func, 'environmentfilter', False) or \
-               getattr(func, 'contextfilter', False):
-                del argspec[0][0]
-            signature = inspect.formatargspec(*argspec)
-        except:
+            # Python 3.11+ replacement for inspect.formatargspec
+            try:
+                sig = inspect.signature(func)
+                signature = str(sig)
+            except Exception:
+                argspec = inspect.getfullargspec(func) if hasattr(inspect, 'getfullargspec') else inspect.getargspec(func)
+                if getattr(func, 'environmentfilter', False) or \
+                   getattr(func, 'contextfilter', False):
+                    del argspec[0][0]
+                if hasattr(inspect, 'formatargspec'):
+                    signature = inspect.formatargspec(*argspec)
+                else:
+                    signature = '()'
+        except Exception:
             pass
     result = [f'.. function:: {name}{signature}', '']
     result.extend('    ' + line for line in lines)
